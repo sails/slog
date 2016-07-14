@@ -65,6 +65,7 @@ type SLog struct {
 type LogConfig struct {
 	DefaultLevel int
 	DefaultSplit int
+	LogDir       string
 	LogLevels    map[string]*ConfigItem
 }
 
@@ -79,6 +80,7 @@ type ConfigItem struct {
 type LogFileConfig struct {
 	DefaultLevel int
 	DefaultSplit int
+	LogDir       string
 	LogLevels    []ConfigItem
 }
 
@@ -88,6 +90,7 @@ func init() {
 	}
 	logConfig.DefaultLevel = LevelDebug
 	logConfig.DefaultSplit = NoneSplit
+	logConfig.LogDir = "./" // 当前目录
 	logConfig.LogLevels = make(map[string]*ConfigItem)
 }
 
@@ -112,6 +115,9 @@ func parserConfig() {
 		}
 		if config.DefaultSplit > SplitStart && config.DefaultSplit < SplitEnd {
 			logConfig.DefaultSplit = config.DefaultSplit
+		}
+		if len(config.LogDir) > 0 {
+			logConfig.LogDir = config.LogDir
 		}
 		for i := 0; i < len(config.LogLevels); i++ {
 			cfg := config.LogLevels[i]
@@ -139,11 +145,11 @@ func parserConfig() {
 func getLogFileName(slog *SLog) string {
 	// 根据时间创建
 	now := time.Now()
-	newfile := slog.name + ".log"
+	newfile := logConfig.LogDir + slog.name + ".log"
 	if slog.model == SplitByDay {
-		newfile = fmt.Sprintf("%s_%d_%d_%d.log", slog.name, now.Year(), now.Month(), now.Day())
+		newfile = fmt.Sprintf("%s%s_%d_%d_%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month(), now.Day())
 	} else if slog.model == SplitByMonth {
-		newfile = fmt.Sprintf("%s_%d_%d.log", slog.name, now.Year(), now.Month())
+		newfile = fmt.Sprintf("%s%s_%d_%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month())
 	}
 	return newfile
 }
