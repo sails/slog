@@ -224,8 +224,8 @@ func SetLogLevel(logName string, level int) {
 
 }
 
-// DebugLog debug 日志
-func DebugLog(logName string, format string, v ...interface{}) {
+// Debug debug 日志
+func Debug(logName string, format string, v ...interface{}) {
 	slog := getSLog(logName)
 	if slog == nil || slog.level > LevelDebug {
 		return
@@ -233,8 +233,20 @@ func DebugLog(logName string, format string, v ...interface{}) {
 	slog.log.Printf("[%s] %s", levels[LevelDebug], fmt.Sprintf(format, v...))
 }
 
-// InfoLog info 日志
-func InfoLog(logName string, format string, v ...interface{}) {
+// DebugPrintln debug日志
+func DebugPrintln(logName string, v ...interface{}) {
+	// 不直接调用Debug(logName, "%s", fmt.Sprintln(v...))
+	// 因为那样做，是先执行了fmt.Sprintln(v...)这个操作，但是
+	// 如果日志级别不够的话，是不需要的，浪费性能
+	slog := getSLog(logName)
+	if slog == nil || slog.level > LevelDebug {
+		return
+	}
+	slog.log.Printf("[%s] %s", levels[LevelDebug], fmt.Sprintln(v...))
+}
+
+// Info info 日志
+func Info(logName string, format string, v ...interface{}) {
 	slog := getSLog(logName)
 	if slog == nil || slog.level > LevelInfo {
 		return
@@ -242,8 +254,17 @@ func InfoLog(logName string, format string, v ...interface{}) {
 	slog.log.Printf("[%s] %s", levels[LevelInfo], fmt.Sprintf(format, v...))
 }
 
-// WarnLog warn 日志
-func WarnLog(logName string, format string, v ...interface{}) {
+// InfoPrintln info 日志
+func InfoPrintln(logName string, v ...interface{}) {
+	slog := getSLog(logName)
+	if slog == nil || slog.level > LevelInfo {
+		return
+	}
+	slog.log.Printf("[%s] %s", levels[LevelInfo], fmt.Sprintln(v...))
+}
+
+// Warn warn 日志
+func Warn(logName string, format string, v ...interface{}) {
 	slog := getSLog(logName)
 	if slog == nil || slog.level > LevelWarning {
 		return
@@ -251,11 +272,29 @@ func WarnLog(logName string, format string, v ...interface{}) {
 	slog.log.Printf("[%s] %s", levels[LevelWarning], fmt.Sprintf(format, v...))
 }
 
-// ErrorLog error 日志
-func ErrorLog(logName string, format string, v ...interface{}) {
+// WarnPrintln warn日志
+func WarnPrintln(logName string, v ...interface{}) {
+	slog := getSLog(logName)
+	if slog == nil || slog.level > LevelWarning {
+		return
+	}
+	slog.log.Printf("[%s] %s", levels[LevelWarning], fmt.Sprintln(v...))
+}
+
+// Error error 日志
+func Error(logName string, format string, v ...interface{}) {
 	slog := getSLog(logName)
 	if slog == nil || slog.level > LevelError {
 		return
 	}
 	slog.log.Printf("[%s] %s", levels[LevelError], fmt.Sprintf(format, v...))
+}
+
+// ErrorPrintln error日志
+func ErrorPrintln(logName string, v ...interface{}) {
+	slog := getSLog(logName)
+	if slog == nil || slog.level > LevelError {
+		return
+	}
+	slog.log.Printf("[%s] %s", levels[LevelError], fmt.Sprintln(v...))
 }
