@@ -188,7 +188,7 @@ func getSLog(logName string) *SLog {
 		slog.model = logConfig.LogLevels[logName].Model
 	}
 	filename := getLogFileName(slog)
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm|os.ModeTemporary)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
 	if err != nil {
 		return nil
 	}
