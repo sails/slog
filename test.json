@@ -1,0 +1,8 @@
+{
+    "DefaultLevel":2,
+    "DefaultSplit":2,
+    "LogLevels":[
+	{"LogName":"test","Level":2, "Model":2},
+	{"LogName":"tt", "Model":3}
+    ]
+}
