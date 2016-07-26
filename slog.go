@@ -147,9 +147,9 @@ func getLogFileName(slog *SLog) string {
 	now := time.Now()
 	newfile := logConfig.LogDir + slog.name + ".log"
 	if slog.model == SplitByDay {
-		newfile = fmt.Sprintf("%s%s_%d_%d_%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month(), now.Day())
+		newfile = fmt.Sprintf("%s%s_%d-%d-%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month(), now.Day())
 	} else if slog.model == SplitByMonth {
-		newfile = fmt.Sprintf("%s%s_%d_%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month())
+		newfile = fmt.Sprintf("%s%s_%d-%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month())
 	}
 	return newfile
 }
