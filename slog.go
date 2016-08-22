@@ -59,6 +59,7 @@ type SLog struct {
 	level   int
 	model   int
 	logfile string
+	file    *os.File
 }
 
 // LogConfig 配置信息，程序中保存的
@@ -165,6 +166,9 @@ func getSLog(logName string) *SLog {
 	if logs[logName] != nil {
 		newfile := getLogFileName(logs[logName])
 		if newfile != logs[logName].logfile {
+			if logs[logName].log != nil && logs[logName].file != nil {
+				logs[logName].file.Close()
+			}
 			logs[logName] = nil
 		} else {
 			return logs[logName]
@@ -195,6 +199,7 @@ func getSLog(logName string) *SLog {
 	logger := log.New(file, "", log.LstdFlags|log.Lshortfile)
 	slog.log = logger
 	slog.logfile = filename
+	slog.file = file
 	logs[logName] = slog
 
 	return logs[logName]
