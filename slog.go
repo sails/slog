@@ -122,10 +122,10 @@ func parserConfig() {
 		}
 		for i := 0; i < len(config.LogLevels); i++ {
 			cfg := config.LogLevels[i]
-			if cfg.Level <= LevelStart && cfg.Level >= LevelEnd {
+			if cfg.Level <= LevelStart || cfg.Level >= LevelEnd {
 				cfg.Level = logConfig.DefaultLevel
 			}
-			if cfg.Model <= SplitStart && cfg.Model >= SplitEnd {
+			if cfg.Model <= SplitStart || cfg.Model >= SplitEnd {
 				cfg.Model = logConfig.DefaultSplit
 			}
 			// 覆盖程序中的配置信息
@@ -138,7 +138,7 @@ func parserConfig() {
 				continue
 			}
 			log.level = logConfig.LogLevels[name].Level
-			log.level = logConfig.LogLevels[name].Model
+			log.model = logConfig.LogLevels[name].Model
 		}
 	}
 }
