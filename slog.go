@@ -135,10 +135,12 @@ func parserConfig() {
 		// 应用到已经存在的日志中
 		for name, log := range logs {
 			if logConfig.LogLevels[name] == nil {
-				continue
+				log.level = logConfig.DefaultLevel
+				log.model = logConfig.DefaultSplit
+			} else {
+				log.level = logConfig.LogLevels[name].Level
+				log.model = logConfig.LogLevels[name].Model
 			}
-			log.level = logConfig.LogLevels[name].Level
-			log.model = logConfig.LogLevels[name].Model
 		}
 	}
 }
