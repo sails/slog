@@ -102,6 +102,8 @@ func SetLogConfigFile(file string) {
 
 // ParserConfig 解析配置
 func parserConfig() {
+	lock.Lock()
+	defer lock.Unlock()
 	if len(logConfigFile) == 0 {
 		return
 	}
