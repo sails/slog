@@ -21,15 +21,15 @@ slog.Debug("test", "hello %s", "sails")
 
 ## configure
 slog可以通过指定一个json的配置文件进行配置，有几个选项可提供配置:
-1. Out，用于指定输出的类型，有两个值"file,console"，可以同时指定.默认是FILE。
-2. Level, 用于指定输入的级别，有1,2,3,4分别对应debug,info, warn,error；默认是debug。
-3. FileSplit, 当Out指定了FILE类型时，用于表明文件的拆分形式，分三种：不拆分，按天，按月；默认是不拆分。
-4. FileDir，用于指定输入的目录，默认是当前目录。
-5. LogLevels，它是一个json结构，用于单独指定日志配置,有以下几个配置：
-    1. LogName，要单独配置的日志名
-    2. Level，单独配置的输出级别
-    3. FileSplit，单独的文件拆分形式
-    4. FileName，日志对应的文件名，默认文件名也文件名对应
++ Out，用于指定输出的类型，有两个值"file,console"，可以同时指定.默认是FILE。
++ Level, 用于指定输入的级别，有1,2,3,4分别对应debug,info, warn,error；默认是debug。
++ FileSplit, 当Out指定了FILE类型时，用于表明文件的拆分形式，分三种：不拆分，按天，按月；默认是不拆分。
++ FileDir，用于指定输入的目录，默认是当前目录。
++ LogLevels，它是一个json结构，用于单独指定日志配置,有以下几个配置：
+    - LogName，要单独配置的日志名
+    - Level，单独配置的输出级别
+    - FileSplit，单独的文件拆分形式
+    - FileName，日志对应的文件名，默认文件名也文件名对应
 
 example, config.json:
 ```
