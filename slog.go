@@ -363,7 +363,7 @@ func output(slog *SLog, levelstr string, content string) {
 		slog.log.Printf("[%s] %s", levelstr, content)
 	}
 	if slog.console != nil {
-		slog.console.Printf("[%s] %s", levelstr, content)
+		slog.console.Printf("[%s] [%s] %s", slog.name, levelstr, content)
 	}
 }
 
