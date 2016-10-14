@@ -13,7 +13,7 @@ slog.Error("test", "hello %s", "sails")
 日志的第一个参数是日志名，第二个参数是格式化字符串，后面的参数是对应的值
 
 
-slog 默认会根据日志名输出当前目录的对应的文件中，比如:
+slog 默认会在当前目录下创建一个log目录用于保存日志文件，比如:
 ```
 slog.Debug("test", "hello %s", "sails")
 ```
