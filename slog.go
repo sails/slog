@@ -6,8 +6,16 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	// OutputConsole 向stdout中输出
+	OutputConsole = 1
+	// OutputFile 向file中输出
+	OutputFile = 2
 )
 
 const (
@@ -38,6 +46,15 @@ const (
 	SplitEnd
 )
 
+const (
+	// DefaltLevel 默认输出级别
+	DefaltLevel = LevelDebug
+	// DefaultSplit 默认日志文件拆分方式
+	DefaultSplit = NoneSplit
+	// DefaultLogDir 默认日志文件输出目录
+	DefaultLogDir = "./log/"
+)
+
 var (
 	levels = map[int]string{
 		LevelDebug:   "DEBUG",
@@ -54,45 +71,66 @@ var (
 
 // SLog 自定义log
 type SLog struct {
-	name    string
-	log     *log.Logger
-	level   int
-	model   int
-	logfile string
-	file    *os.File
+	name string
+	// file logger
+	log       *log.Logger
+	level     int
+	filesplit int
+	// 保存的文件名，如果没有指定，默认是name
+	filename string
+	logfile  string
+	file     *os.File
+
+	// console
+	console *log.Logger
 }
 
 // LogConfig 配置信息，程序中保存的
 type LogConfig struct {
-	DefaultLevel int
-	DefaultSplit int
-	LogDir       string
-	LogLevels    map[string]*ConfigItem
+	Out       int
+	Level     int
+	FileSplit int
+	FileDir   string
+	LogLevels map[string]*ConfigItem
 }
 
 // ConfigItem 针对某个单独的log的配置
 type ConfigItem struct {
-	LogName string
-	Level   int
-	Model   int
+	LogName   string
+	Level     int
+	FileSplit int
+	FileName  string
 }
 
 // LogFileConfig 用于配置文件中的，与程序中保存的不同，主要是json中更加人性化
 type LogFileConfig struct {
-	DefaultLevel int
-	DefaultSplit int
-	LogDir       string
-	LogLevels    []ConfigItem
+	Out       string
+	Level     int
+	FileSplit int
+	FileDir   string
+	LogLevels []ConfigItem
 }
 
 func init() {
 	if logs == nil {
 		logs = make(map[string]*SLog)
 	}
-	logConfig.DefaultLevel = LevelDebug
-	logConfig.DefaultSplit = NoneSplit
-	logConfig.LogDir = "./" // 当前目录
+	logConfig.Out = OutputFile
+	logConfig.Level = DefaltLevel
+	logConfig.FileSplit = DefaultSplit
+	logConfig.FileDir = DefaultLogDir
 	logConfig.LogLevels = make(map[string]*ConfigItem)
+	// 创建对应的目录
+	if !Exist(logConfig.FileDir) {
+		os.MkdirAll(logConfig.FileDir, 0777)
+	}
+}
+
+// 检查文件或目录是否存在
+// 如果由 filename 指定的文件或目录存在则返回 true，否则返回 false
+func Exist(filename string) bool {
+	_, err := os.Stat(filename)
+	return err == nil || os.IsExist(err)
 }
 
 // SetLogConfigFile 设置配置文件
@@ -113,72 +151,98 @@ func parserConfig() {
 	}
 	config := LogFileConfig{}
 	if err := json.Unmarshal(data, &config); err == nil {
-		if config.DefaultLevel > LevelStart && config.DefaultLevel < LevelEnd {
-			logConfig.DefaultLevel = config.DefaultLevel
-		}
-		if config.DefaultSplit > SplitStart && config.DefaultSplit < SplitEnd {
-			logConfig.DefaultSplit = config.DefaultSplit
-		}
-		if len(config.LogDir) > 0 {
-			logConfig.LogDir = config.LogDir
-		}
-		for i := 0; i < len(config.LogLevels); i++ {
-			cfg := config.LogLevels[i]
-			if cfg.Level <= LevelStart || cfg.Level >= LevelEnd {
-				cfg.Level = logConfig.DefaultLevel
+		logConfig.Out = 0
+		if len(config.Out) > 0 { // 有配置
+			out := strings.ToUpper(config.Out)
+			if strings.Contains(out, "FILE") {
+				logConfig.Out = OutputFile
 			}
-			if cfg.Model <= SplitStart || cfg.Model >= SplitEnd {
-				cfg.Model = logConfig.DefaultSplit
+			if strings.Contains(out, "CONSOLE") {
+				logConfig.Out = logConfig.Out | OutputConsole
 			}
-			// 覆盖程序中的配置信息
-			logConfig.LogLevels[cfg.LogName] = &cfg
 		}
 
-		// 应用到已经存在的日志中
-		for name, log := range logs {
-			if logConfig.LogLevels[name] == nil {
-				log.level = logConfig.DefaultLevel
-				log.model = logConfig.DefaultSplit
-			} else {
-				log.level = logConfig.LogLevels[name].Level
-				log.model = logConfig.LogLevels[name].Model
+		if logConfig.Out == 0 {
+			logConfig.Out = OutputFile
+		}
+		if config.Level > LevelStart && config.Level < LevelEnd {
+			logConfig.Level = config.Level
+		} else {
+			logConfig.Level = DefaltLevel
+		}
+		if config.FileSplit > SplitStart && config.FileSplit < SplitEnd {
+			logConfig.FileSplit = config.FileSplit
+		} else {
+			logConfig.FileSplit = DefaultSplit
+		}
+		if len(config.FileDir) > 0 {
+			logConfig.FileDir = config.FileDir
+			// 创建对应的目录
+			if !Exist(logConfig.FileDir) {
+				os.MkdirAll(logConfig.FileDir, 0777)
 			}
+		} else {
+			logConfig.FileDir = DefaultLogDir
+		}
+		loglevels := make(map[string]*ConfigItem)
+		for i := 0; i < len(config.LogLevels); i++ {
+			cfg := config.LogLevels[i]
+			if len(cfg.LogName) == 0 {
+				continue
+			}
+			if cfg.Level <= LevelStart || cfg.Level >= LevelEnd {
+				cfg.Level = logConfig.Level
+			}
+			if cfg.FileSplit <= SplitStart || cfg.FileSplit >= SplitEnd {
+				cfg.FileSplit = logConfig.FileSplit
+			}
+			if len(cfg.FileName) == 0 {
+				cfg.FileName = cfg.LogName
+			}
+			loglevels[cfg.LogName] = &cfg
+		}
+		// 覆盖程序中的配置信息
+		logConfig.LogLevels = loglevels
+	}
+}
+
+func applyConfig() {
+	lock.Lock()
+	defer lock.Unlock()
+	// 应用到已经存在的日志中
+	for name, log := range logs {
+		if log == nil {
+			continue
+		}
+		if logConfig.LogLevels[name] == nil {
+			log.level = logConfig.Level
+			log.filesplit = logConfig.FileSplit
+			log.filename = log.name
+		} else {
+			log.level = logConfig.LogLevels[name].Level
+			log.filesplit = logConfig.LogLevels[name].FileSplit
+			log.filename = logConfig.LogLevels[name].FileName
 		}
 	}
 }
 
-func getLogFileName(slog *SLog) string {
+func getLogFileFullPath(slog *SLog) string {
 	// 根据时间创建
 	now := time.Now()
-	newfile := logConfig.LogDir + slog.name + ".log"
-	if slog.model == SplitByDay {
-		newfile = fmt.Sprintf("%s%s_%d-%d-%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month(), now.Day())
-	} else if slog.model == SplitByMonth {
-		newfile = fmt.Sprintf("%s%s_%d-%d.log", logConfig.LogDir, slog.name, now.Year(), now.Month())
+
+	if len(slog.filename) == 0 {
+		slog.filename = slog.name
+	}
+	newfile := logConfig.FileDir + "/" + slog.filename + ".log"
+	if slog.filesplit == SplitByDay {
+		newfile = fmt.Sprintf("%s/%s_%d-%d-%d.log", logConfig.FileDir, slog.filename, now.Year(), now.Month(), now.Day())
+	} else if slog.filesplit == SplitByMonth {
+		newfile = fmt.Sprintf("%s/%s_%d-%d.log", logConfig.FileDir, slog.filename, now.Year(), now.Month())
 	}
 	return newfile
 }
 
-// GetSLog 根据名称, 时间和level创建log
-func getSLog(logName string) *SLog {
-	// 设置level，每10秒检查一次
-	now := time.Now()
-	if now.Unix()-lastCheckConfigTime > 10 {
-		lastCheckConfigTime = now.Unix()
-		parserConfig()
-	}
-	if logs[logName] != nil {
-		newfile := getLogFileName(logs[logName])
-		if newfile != logs[logName].logfile {
-			if logs[logName].log != nil && logs[logName].file != nil {
-				logs[logName].file.Close()
-			}
-			logs[logName] = nil
-		} else {
-			return logs[logName]
-		}
-	}
-	// 在这里，说明logs[logName]已经是空了
+func newSlog(logName string) *SLog {
 	lock.Lock()
 	defer lock.Unlock()
 	// 双重校验，防止多线程问题
@@ -189,23 +253,84 @@ func getSLog(logName string) *SLog {
 	slog := &SLog{}
 	slog.name = logName
 	if logConfig.LogLevels[logName] == nil {
-		slog.level = logConfig.DefaultLevel
-		slog.model = logConfig.DefaultSplit
+		slog.level = logConfig.Level
+		slog.filesplit = logConfig.FileSplit
+		slog.filename = slog.name
 	} else {
 		slog.level = logConfig.LogLevels[logName].Level
-		slog.model = logConfig.LogLevels[logName].Model
+		slog.filesplit = logConfig.LogLevels[logName].FileSplit
+		slog.filename = logConfig.LogLevels[logName].FileName
 	}
-	filename := getLogFileName(slog)
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
-	if err != nil {
-		return nil
-	}
-	logger := log.New(file, "", log.LstdFlags|log.Lshortfile)
-	slog.log = logger
-	slog.logfile = filename
-	slog.file = file
-	logs[logName] = slog
+	if (logConfig.Out & OutputFile) == OutputFile {
+		filename := getLogFileFullPath(slog)
 
+		file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+		logger := log.New(file, "", log.LstdFlags|log.Lshortfile)
+		slog.log = logger
+		slog.logfile = filename
+		slog.file = file
+	}
+	if (logConfig.Out & OutputConsole) == OutputConsole {
+		console := log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
+		slog.console = console
+	}
+
+	return slog
+}
+
+// GetSLog 根据名称, 时间和level创建log
+func getSLog(logName string) *SLog {
+	// 设置level，每10秒检查一次
+	now := time.Now()
+	if now.Unix()-lastCheckConfigTime > 10 {
+		lastCheckConfigTime = now.Unix()
+		parserConfig()
+		applyConfig()
+	}
+	if logs[logName] != nil {
+		// 只要配置变更或者输出文件改变了，就重新创建
+		reCreate := false
+		// 控制台改变
+		if (logConfig.Out & OutputConsole) == OutputConsole {
+			if logs[logName].console == nil {
+				reCreate = true
+			}
+		} else {
+			logs[logName].console = nil
+		}
+		// 文件日志格式或者日期导致的文件名改变
+		if !reCreate {
+			if (logConfig.Out & OutputFile) == OutputFile {
+				newfile := getLogFileFullPath(logs[logName])
+				if newfile != logs[logName].logfile {
+					reCreate = true
+				}
+			} else {
+				if logs[logName].log != nil && logs[logName].file != nil {
+					logs[logName].file.Close()
+				}
+				logs[logName].file = nil
+				logs[logName].logfile = ""
+				logs[logName].log = nil
+			}
+		}
+
+		if !reCreate {
+			return logs[logName]
+		}
+
+		// 需要重建
+		if logs[logName].log != nil && logs[logName].file != nil {
+			logs[logName].file.Close()
+		}
+		logs[logName] = nil
+	}
+	// 说明找不到日志，则新建一个
+	logs[logName] = newSlog(logName)
 	return logs[logName]
 }
 
@@ -225,12 +350,21 @@ func SetLogLevel(logName string, level int) {
 		config := ConfigItem{}
 		config.LogName = logName
 		config.Level = level
-		config.Model = logConfig.DefaultSplit
+		config.FileSplit = logConfig.FileSplit
 		logConfig.LogLevels[logName] = &config
 	} else {
 		logConfig.LogLevels[logName].Level = level
 	}
 
+}
+
+func output(slog *SLog, levelstr string, content string) {
+	if slog.log != nil {
+		slog.log.Printf("[%s] %s", levelstr, content)
+	}
+	if slog.console != nil {
+		slog.console.Printf("[%s] %s", levelstr, content)
+	}
 }
 
 // Debug debug 日志
@@ -239,7 +373,7 @@ func Debug(logName string, format string, v ...interface{}) {
 	if slog == nil || slog.level > LevelDebug {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelDebug], fmt.Sprintf(format, v...))
+	output(slog, levels[LevelDebug], fmt.Sprintf(format, v...))
 }
 
 // DebugPrintln debug日志
@@ -251,7 +385,7 @@ func DebugPrintln(logName string, v ...interface{}) {
 	if slog == nil || slog.level > LevelDebug {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelDebug], fmt.Sprintln(v...))
+	output(slog, levels[LevelDebug], fmt.Sprintln(v...))
 }
 
 // Info info 日志
@@ -260,7 +394,7 @@ func Info(logName string, format string, v ...interface{}) {
 	if slog == nil || slog.level > LevelInfo {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelInfo], fmt.Sprintf(format, v...))
+	output(slog, levels[LevelInfo], fmt.Sprintf(format, v...))
 }
 
 // InfoPrintln info 日志
@@ -269,7 +403,7 @@ func InfoPrintln(logName string, v ...interface{}) {
 	if slog == nil || slog.level > LevelInfo {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelInfo], fmt.Sprintln(v...))
+	output(slog, levels[LevelInfo], fmt.Sprintln(v...))
 }
 
 // Warn warn 日志
@@ -278,7 +412,7 @@ func Warn(logName string, format string, v ...interface{}) {
 	if slog == nil || slog.level > LevelWarning {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelWarning], fmt.Sprintf(format, v...))
+	output(slog, levels[LevelWarning], fmt.Sprintf(format, v...))
 }
 
 // WarnPrintln warn日志
@@ -287,7 +421,7 @@ func WarnPrintln(logName string, v ...interface{}) {
 	if slog == nil || slog.level > LevelWarning {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelWarning], fmt.Sprintln(v...))
+	output(slog, levels[LevelWarning], fmt.Sprintln(v...))
 }
 
 // Error error 日志
@@ -296,7 +430,7 @@ func Error(logName string, format string, v ...interface{}) {
 	if slog == nil || slog.level > LevelError {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelError], fmt.Sprintf(format, v...))
+	output(slog, levels[LevelError], fmt.Sprintf(format, v...))
 }
 
 // ErrorPrintln error日志
@@ -305,5 +439,5 @@ func ErrorPrintln(logName string, v ...interface{}) {
 	if slog == nil || slog.level > LevelError {
 		return
 	}
-	slog.log.Printf("[%s] %s", levels[LevelError], fmt.Sprintln(v...))
+	output(slog, levels[LevelError], fmt.Sprintln(v...))
 }
