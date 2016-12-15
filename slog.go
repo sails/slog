@@ -62,7 +62,7 @@ var (
 		LevelWarning: "WARNING",
 		LevelError:   "ERROR",
 	}
-	logConfigFile       string
+	logConfigFile       = "log.json"
 	logConfig           LogConfig
 	lastCheckConfigTime int64
 	lock                sync.Mutex
